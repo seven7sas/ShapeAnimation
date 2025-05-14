@@ -1,0 +1,52 @@
+provider: gigadev:shape
+id: shape
+
+settings:
+  item:
+    speed: 1.2
+    speed_back: 1.5
+    offset:
+      x: 0
+      y: 3.5
+      z: 0
+    swap:
+      period: 15
+      sound:
+        name: ITEM_ARMOR_EQUIP_ELYTRA
+        volume: 1
+        pitch: 1
+  fireworks:
+#    https://jd.papermc.io/paper/1.16.5/org/bukkit/FireworkEffect.Type.html
+#    - type: STAR
+    - offset:
+        x: -1
+        y: 1.5
+        z: 1
+      colors:
+        - '#9639b3'
+        - '#c735cc'
+        - '#f23a9f'
+    - offset:
+        x: 1
+        y: 1.5
+        z: -1
+      colors:
+        - '#9639b3'
+        - '#c735cc'
+        - '#f23a9f'
+    - offset:
+        x: -1
+        y: 1.5
+        z: -1
+      colors:
+        - '#9639b3'
+        - '#c735cc'
+        - '#f23a9f'
+    - offset:
+        x: 1
+        y: 1.5
+        z: 1
+      colors:
+        - '#9639b3'
+        - '#c735cc'
+        - '#f23a9f'
