@@ -2,6 +2,7 @@ package ru.giga.dev.shapeanimation;
 
 import blib.com.mojang.serialization.Codec;
 import org.bukkit.Sound;
+import org.by1337.blib.BLib;
 import org.by1337.blib.text.MessageFormatter;
 
 import java.lang.reflect.Field;
@@ -11,10 +12,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
-// https://github.com/By1337/BLib/blob/master/BLib-api/src/main/java/org/by1337/blib/command/argument/ArgumentSound.java
 public class SoundFixer {
 
-    public static final Codec<Sound> CODEC = Codec.STRING.xmap(SoundFixer::byName, Enum::name);
+    public static final Codec<Sound> CODEC = Codec.STRING.xmap(SoundFixer::byName, v -> v.getKey().getKey().replace(".", "_"));
     private static final Map<String, Sound> LOOKUP_BY_NAME;
 
     public static Sound byName(String name) {

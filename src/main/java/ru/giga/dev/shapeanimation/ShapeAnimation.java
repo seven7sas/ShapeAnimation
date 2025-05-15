@@ -17,6 +17,7 @@ import dev.by1337.virtualentity.api.virtual.item.VirtualItem;
 import dev.by1337.virtualentity.api.virtual.projectile.VirtualFireworkRocketEntity;
 import org.bukkit.*;
 import org.bukkit.block.Lidded;
+import org.bukkit.block.data.type.RespawnAnchor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class ShapeAnimation extends AbstractAnimation {
 
@@ -51,12 +53,20 @@ public class ShapeAnimation extends AbstractAnimation {
 
     @Override
     protected void animate() throws InterruptedException {
+        modifyAnchorCharges(charges -> config.anchorCharges.max - charges, 1, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE);
         modifyLidded(Lidded::open);
 
         virtualItem.setPos(center);
         trackEntity(virtualItem);
 
-        var task = new AsyncTask() {
+        var taskPart = new AsyncTask() {
+            @Override
+            public void run() {
+                config.particles.ifPresent(part -> part.spawn(ShapeAnimation.this));
+            }
+        }.timer().delay(2).start(this);
+
+        var taskSwap = new AsyncTask() {
             @Override
             public void run() {
                 setParamsPrize(prizeSelector.getRandomPrize());
@@ -65,7 +75,8 @@ public class ShapeAnimation extends AbstractAnimation {
         }.timer().delay(config.item.swap.period).start(this);
         MoveEngine.goTo(virtualItem, center.add(config.item.offset), config.item.speed).startSync(this);
 
-        task.cancel();
+        taskSwap.cancel();
+        taskPart.cancel();
         setParamsPrize(winner);
         sleep(700);
 
@@ -91,23 +102,40 @@ public class ShapeAnimation extends AbstractAnimation {
             virtualFirework.tick(players);
             virtualFirework.sendEntityEvent(EntityEvent.FIREWORKS_EXPLODE);
             virtualFirework.tick(Set.of());
-
-            trackEntity(virtualFirework);
         }
         sleep(2000);
 
         MoveEngine.goTo(virtualItem, center, config.item.speedBack).startSync(this);
+
+        modifyAnchorCharges(charges -> charges - config.anchorCharges.min, -1, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE);
         modifyLidded(Lidded::close);
     }
 
-    private void modifyLidded(Consumer<Lidded> consumer) {
+    private void modifyLidded(Consumer<Lidded> action) {
         sync(() -> {
             var state = blockPos.toBlock(world).getState();
             if (state instanceof Lidded lidded) {
-                consumer.accept(lidded);
+                action.accept(lidded);
                 state.update();
             }
         }).start();
+    }
+
+    private void modifyAnchorCharges(Function<Integer, Integer> steps, int direction, Sound sound) throws InterruptedException {
+        var block = blockPos.toBlock(world);
+        if (!(block.getBlockData() instanceof RespawnAnchor anchor)) return;
+
+        for (int i = 0; i <= steps.apply(anchor.getCharges()) + 1; i++) {
+            int newCharges = anchor.getCharges() + direction;
+            if (newCharges < 0 || newCharges > 4) break;
+
+            sync(() -> {
+                anchor.setCharges(newCharges);
+                block.setBlockData(anchor);
+            }).start();
+            playSound(sound, 1, 1);
+            sleepTicks(config.anchorCharges.interval);
+        }
     }
 
     @Override
@@ -132,11 +160,41 @@ public class ShapeAnimation extends AbstractAnimation {
     public void onInteract(PlayerInteractEvent playerInteractEvent) {
     }
 
-    public record Config(Item item, List<Firework> fireworks) {
+    public record Config(Optional<Particles> particles, AnchorCharges anchorCharges, Item item, List<Firework> fireworks) {
         public final static Codec<Config> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Particles.CODEC.optionalFieldOf("particles").forGetter(Config::particles),
+                AnchorCharges.CODEC.optionalFieldOf("anchor_charges", AnchorCharges.DEFAULT).forGetter(Config::anchorCharges),
                 Item.CODEC.fieldOf("item").forGetter(Config::item),
                 Firework.CODEC.listOf().optionalFieldOf("fireworks", Collections.emptyList()).forGetter(Config::fireworks)
         ).apply(instance, Config::new));
+
+        public record AnchorCharges(long interval, int max, int min) {
+            public final static AnchorCharges DEFAULT = new AnchorCharges(15, 3, 1);
+            public final static Codec<AnchorCharges> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                    Codec.LONG.optionalFieldOf("interval", 15L).forGetter(AnchorCharges::interval),
+                    Codec.INT.optionalFieldOf("max", 3).forGetter(AnchorCharges::max),
+                    Codec.INT.optionalFieldOf("min", 1).forGetter(AnchorCharges::min)
+            ).apply(instance, AnchorCharges::new));
+
+            public AnchorCharges {
+                max = Math.min(4, Math.max(0, max));
+                min = Math.min(max, Math.max(0, min));
+            }
+        }
+
+        public record Particles(Particle particle, Vec3d posOffset, Vec3d partOffset, int count) {
+            public final static Codec<Particle> PARTICLE = DefaultCodecs.createAnyEnumCodec(Particle.class);
+            public final static Codec<Particles> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                    PARTICLE.fieldOf("name").forGetter(Particles::particle),
+                    Vec3d.CODEC.fieldOf("pos_offset").forGetter(Particles::posOffset),
+                    Vec3d.CODEC.fieldOf("part_offset").forGetter(Particles::partOffset),
+                    Codec.INT.fieldOf("count").forGetter(Particles::count)
+            ).apply(instance, Particles::new));
+
+            public void spawn(AbstractAnimation animation) {
+                animation.spawnParticle(particle, animation.getCenter().clone().add(posOffset.toVector()), count, partOffset.x, partOffset.y, partOffset.z);
+            }
+        }
 
         public record Item(double speed, double speedBack, Vec3d offset, Config.Item.Swap swap) {
             public final static Codec<Item> CODEC = RecordCodecBuilder.create(instance -> instance.group(

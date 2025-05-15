@@ -2,6 +2,21 @@ provider: gigadev:shape
 id: shape
 
 settings:
+  particles:
+    name: SPELL_WITCH
+    pos_offset:
+      x: 0
+      y: 0.8
+      z: 0
+    part_offset:
+      x: 0.15
+      y: 0.2
+      z: 0.15
+    count: 10
+  anchor_charges:
+    interval: 15
+    max: 4
+    min: 1
   item:
     speed: 1.2
     speed_back: 1.5
