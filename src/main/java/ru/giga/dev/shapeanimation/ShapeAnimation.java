@@ -107,7 +107,7 @@ public class ShapeAnimation extends AbstractAnimation {
 
         MoveEngine.goTo(virtualItem, center, config.item.speedBack).startSync(this);
 
-        trackEntity(virtualItem);
+        removeEntity(virtualItem);
         modifyAnchorCharges(charges -> charges - config.anchorCharges.min, -1, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE);
         modifyLidded(Lidded::close);
     }
