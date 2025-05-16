@@ -13,6 +13,7 @@ settings:
       y: 0.2
       z: 0.15
     count: 10
+    speed: 0.1
   anchor_charges:
     interval: 15
     max: 4

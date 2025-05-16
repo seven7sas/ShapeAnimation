@@ -107,6 +107,7 @@ public class ShapeAnimation extends AbstractAnimation {
 
         MoveEngine.goTo(virtualItem, center, config.item.speedBack).startSync(this);
 
+        trackEntity(virtualItem);
         modifyAnchorCharges(charges -> charges - config.anchorCharges.min, -1, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE);
         modifyLidded(Lidded::close);
     }
@@ -182,17 +183,18 @@ public class ShapeAnimation extends AbstractAnimation {
             }
         }
 
-        public record Particles(Particle particle, Vec3d posOffset, Vec3d partOffset, int count) {
+        public record Particles(Particle particle, Vec3d posOffset, Vec3d partOffset, int count, double speed) {
             public final static Codec<Particle> PARTICLE = DefaultCodecs.createAnyEnumCodec(Particle.class);
             public final static Codec<Particles> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                     PARTICLE.fieldOf("name").forGetter(Particles::particle),
                     Vec3d.CODEC.fieldOf("pos_offset").forGetter(Particles::posOffset),
                     Vec3d.CODEC.fieldOf("part_offset").forGetter(Particles::partOffset),
-                    Codec.INT.fieldOf("count").forGetter(Particles::count)
+                    Codec.INT.optionalFieldOf("count", 0).forGetter(Particles::count),
+                    Codec.DOUBLE.optionalFieldOf("speed", 0.1).forGetter(Particles::speed)
             ).apply(instance, Particles::new));
 
             public void spawn(AbstractAnimation animation) {
-                animation.spawnParticle(particle, animation.getCenter().clone().add(posOffset.toVector()), count, partOffset.x, partOffset.y, partOffset.z);
+                animation.spawnParticle(particle, animation.getCenter().clone().add(posOffset.toVector()), count, partOffset.x, partOffset.y, partOffset.z, speed);
             }
         }
 
